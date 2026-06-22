@@ -6,12 +6,12 @@ from fastapi import FastAPI, Request, BackgroundTasks
 from pydantic import BaseModel
 from sklearn.linear_model import LogisticRegression, LinearRegression
 from sklearn.preprocessing import LabelEncoder
-from aiochclient import ChClient
-from aiohttp import ClientSession
+from clickhouse_driver import Client as SyncClient
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 from fastapi import Response
 from aiocache import cached, Cache
 from aiocache.serializers import JsonSerializer
+import pickle
 
 app = FastAPI(title="MLOps Pipeline API (Async)")
 
@@ -31,24 +31,15 @@ async def metrics_middleware(request: Request, call_next):
     return response
 
 # Global state
-ch_client = None
 clf, reg, le_user, le_cat = None, None, None, None
 model_ready = False
 
-async def get_ch_client():
-    """Get async ClickHouse client."""
-    global ch_client
-    if ch_client is None:
-        session = ClientSession()
-        ch_client = ChClient(session, url='http://clickhouse:8123')
-    return ch_client
-
-async def train_models_async():
-    """Train models using current data from ClickHouse."""
+def train_models_sync():
+    """Synchronous training using clickhouse_driver (reliable)."""
     global clf, reg, le_user, le_cat, model_ready
     try:
-        client = await get_ch_client()
-        data = await client.execute('SELECT user_id, amount, product_category FROM orders')
+        client = SyncClient(host='clickhouse', user='default', password='')
+        data = client.execute('SELECT user_id, amount, product_category FROM orders')
         if not data:
             model_ready = False
             return
@@ -70,24 +61,17 @@ async def train_models_async():
         print(f"Training error: {e}")
         model_ready = False
 
-async def periodic_training(interval=60):
-    """Background task to retrain models periodically."""
-    while True:
-        await train_models_async()
-        await asyncio.sleep(interval)
+# Train on startup
+train_models_sync()
 
-@app.on_event("startup")
-async def startup():
-    asyncio.create_task(periodic_training(interval=60))  # every 60 seconds
-
-@app.on_event("shutdown")
-async def shutdown():
-    if ch_client:
-        await ch_client.session.close()
+class PredictionResponse(BaseModel):
+    user_id: int
+    predicted_category: str
+    predicted_amount: float
+    from_cache: bool = False
 
 @cached(ttl=60, cache=Cache.MEMORY, serializer=JsonSerializer())
 async def get_prediction(user_id: int, amount: float):
-    """Cached prediction function."""
     global clf, reg, le_user, le_cat
     if not model_ready or clf is None:
         return None
@@ -104,15 +88,8 @@ async def get_prediction(user_id: int, amount: float):
     except Exception:
         return None
 
-class PredictionResponse(BaseModel):
-    user_id: int
-    predicted_category: str
-    predicted_amount: float
-    from_cache: bool = False
-
 @app.get("/predict/{user_id}", response_model=PredictionResponse)
 async def predict(user_id: int, amount: float = 0.0):
-    """Predict category and amount for a user."""
     from_cache = False
     cached_result = await get_prediction(user_id, amount)
     if cached_result is not None:
@@ -140,15 +117,14 @@ async def predict(user_id: int, amount: float = 0.0):
 
 @app.get("/metrics")
 async def metrics():
-    """Prometheus metrics endpoint."""
     return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 @app.get("/health")
 async def health():
-    """Health check endpoint."""
+    """Health check using sync client."""
     try:
-        client = await get_ch_client()
-        await client.execute('SELECT 1')
+        client = SyncClient(host='clickhouse', user='default', password='')
+        client.execute('SELECT 1')
         db_ok = True
     except:
         db_ok = False
@@ -162,5 +138,5 @@ async def health():
 @app.post("/retrain")
 async def retrain(background_tasks: BackgroundTasks):
     """Manually trigger model retraining."""
-    background_tasks.add_task(train_models_async)
+    background_tasks.add_task(train_models_sync)
     return {"status": "training_started"}

@@ -75,6 +75,8 @@ services:
         condition: service_healthy
     environment:
       CLICKHOUSE_HOST: clickhouse
+    extra_hosts:
+      - "clickhouse:172.21.0.4"   # setting IP ClickHouse
     restart: unless-stopped
 
   dashboard:
