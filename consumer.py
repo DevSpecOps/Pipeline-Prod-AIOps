@@ -7,7 +7,6 @@ from kafka import KafkaConsumer
 from kafka.errors import NoBrokersAvailable
 from clickhouse_driver import Client
 
-# Environment variables
 KAFKA_BOOTSTRAP_SERVERS = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'kafka:9092')
 TOPIC = os.getenv('KAFKA_TOPIC', 'orders_topic')
 CLICKHOUSE_HOST = os.getenv('CLICKHOUSE_HOST', 'clickhouse')
@@ -25,7 +24,6 @@ signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
 def wait_for_kafka(retries=20, delay=3):
-    """Wait for Kafka to become available."""
     for i in range(retries):
         try:
             consumer = KafkaConsumer(
@@ -43,7 +41,6 @@ def wait_for_kafka(retries=20, delay=3):
     return False
 
 def wait_for_clickhouse(retries=20, delay=3):
-    """Wait for ClickHouse to become available."""
     for i in range(retries):
         try:
             client = Client(host=CLICKHOUSE_HOST, user=CLICKHOUSE_USER, password=CLICKHOUSE_PASSWORD)
@@ -56,14 +53,29 @@ def wait_for_clickhouse(retries=20, delay=3):
     raise Exception("ClickHouse not available")
 
 def create_table(client):
-    """Create the orders table if it doesn't exist."""
     client.execute('''
         CREATE TABLE IF NOT EXISTS orders (
             order_id String,
             user_id Int32,
-            amount Float32,
+            timestamp Int64,
             product_category String,
-            timestamp Int64
+            product_name String,
+            brand String,
+            price Float32,
+            quantity Int32,
+            total_amount Float32,
+            total_with_discount Float32,
+            discount Float32,
+            channel String,
+            city String,
+            user_type String,
+            promo String,
+            experiment_group String,
+            is_returned UInt8,
+            is_weekend UInt8,
+            has_card UInt8,
+            card_discount Float32,
+            bonus_earned Float32
         ) ENGINE = MergeTree()
         ORDER BY timestamp
     ''')
@@ -82,21 +94,17 @@ def main():
         enable_auto_commit=True
     )
     print(f"Consumer started, listening to '{TOPIC}'")
+
     for message in consumer:
         if not running:
             break
         order = message.value
         try:
-            client.execute('INSERT INTO orders VALUES', [(
-                order['order_id'],
-                order['user_id'],
-                order['amount'],
-                order['product_category'],
-                order['timestamp']
-            )])
+            client.execute('INSERT INTO orders FORMAT JSONEachRow', [order])
             print(f"Inserted: {order}")
         except Exception as e:
             print(f"Insert error: {e}")
+
     consumer.close()
     print("Consumer stopped.")
 

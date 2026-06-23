@@ -1,0 +1,5 @@
+pytest==7.4.0
+testcontainers[kafka,clickhouse]==3.7.1
+locust==2.20.0
+docker==6.1.3
+plotly==5.17.0

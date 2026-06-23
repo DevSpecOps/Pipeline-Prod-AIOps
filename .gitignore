@@ -21,3 +21,7 @@ __pycache__/
 # OS junk
 .DS_Store
 Thumbs.db
+
+# Load test results
+load_tests/*.html
+load_tests/*.log

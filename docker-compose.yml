@@ -74,8 +74,6 @@ services:
     environment:
       CLICKHOUSE_HOST: clickhouse
     restart: unless-stopped
-    extra_hosts:
-      - "clickhouse:172.21.0.4"
 
   dashboard:
     build:
@@ -103,6 +101,7 @@ services:
       - "3001:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_PLUGINS_PREINSTALL=grafana-clickhouse-datasource
     depends_on:
       - prometheus
     volumes:
