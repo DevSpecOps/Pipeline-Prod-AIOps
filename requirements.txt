@@ -10,6 +10,3 @@ prometheus-client==0.19.0
 requests==2.31.0
 pytest==7.4.0
 testcontainers[kafka,clickhouse]==3.7.1
-aiochclient==2.2.0
-aiohttp==3.9.0
-aiocache==0.12.2

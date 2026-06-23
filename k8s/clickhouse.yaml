@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clickhouse
+  namespace: mlops
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: clickhouse
+  template:
+    metadata:
+      labels:
+        app: clickhouse
+    spec:
+      containers:
+      - name: clickhouse
+        image: clickhouse/clickhouse-server:latest
+        ports:
+        - containerPort: 8123
+        - containerPort: 9000
+        env:
+        - name: CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT
+          value: "1"
+        volumeMounts:
+        - name: clickhouse-config
+          mountPath: /etc/clickhouse-server/users.d
+      volumes:
+      - name: clickhouse-config
+        configMap:
+          name: clickhouse-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clickhouse
+  namespace: mlops
+spec:
+  selector:
+    app: clickhouse
+  ports:
+  - port: 8123
+  - port: 9000
+  clusterIP: None
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: clickhouse-config
+  namespace: mlops
+data:
+  allow_all.xml: |
+    <clickhouse>
+      <users>
+        <default>
+          <password></password>
+          <networks>
+            <ip>::/0</ip>
+          </networks>
+          <profile>default</profile>
+          <quota>default</quota>
+        </default>
+      </users>
+    </clickhouse>

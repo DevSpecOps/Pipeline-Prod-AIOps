@@ -48,7 +48,6 @@ services:
         condition: service_healthy
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-    # restart: on-failure  # disabled to avoid log spam
 
   consumer:
     build:
@@ -62,7 +61,6 @@ services:
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       CLICKHOUSE_HOST: clickhouse
-    # restart: on-failure
 
   api:
     build:
@@ -75,9 +73,9 @@ services:
         condition: service_healthy
     environment:
       CLICKHOUSE_HOST: clickhouse
-    extra_hosts:
-      - "clickhouse:172.21.0.4"   # setting IP ClickHouse
     restart: unless-stopped
+    extra_hosts:
+      - "clickhouse:172.21.0.4"
 
   dashboard:
     build:
@@ -107,3 +105,9 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
     depends_on:
       - prometheus
+    volumes:
+      - grafana-storage:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+
+volumes:
+  grafana-storage:

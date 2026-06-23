@@ -1,0 +1,36 @@
+{
+  "title": "MLOps API Dashboard",
+  "panels": [
+    {
+      "title": "Requests per second",
+      "type": "graph",
+      "targets": [{ "expr": "rate(http_requests_total[5m])" }],
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 }
+    },
+    {
+      "title": "Predictions by category",
+      "type": "graph",
+      "targets": [{ "expr": "rate(predictions_total[5m])" }],
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 }
+    },
+    {
+      "title": "Total requests",
+      "type": "stat",
+      "targets": [{ "expr": "sum(http_requests_total)" }],
+      "gridPos": { "x": 0, "y": 8, "w": 8, "h": 4 }
+    },
+    {
+      "title": "Cache hits",
+      "type": "stat",
+      "targets": [{ "expr": "sum(cache_hits_total)" }],
+      "gridPos": { "x": 8, "y": 8, "w": 8, "h": 4 }
+    },
+    {
+      "title": "Total predictions",
+      "type": "stat",
+      "targets": [{ "expr": "sum(predictions_total)" }],
+      "gridPos": { "x": 16, "y": 8, "w": 8, "h": 4 }
+    }
+  ],
+  "schemaVersion": 27
+}

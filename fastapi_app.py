@@ -1,6 +1,7 @@
 import os
 import time
 import asyncio
+import logging
 import pandas as pd
 from fastapi import FastAPI, Request, BackgroundTasks
 from pydantic import BaseModel
@@ -9,11 +10,11 @@ from sklearn.preprocessing import LabelEncoder
 from clickhouse_driver import Client as SyncClient
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 from fastapi import Response
-from aiocache import cached, Cache
-from aiocache.serializers import JsonSerializer
-import pickle
 
-app = FastAPI(title="MLOps Pipeline API (Async)")
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+app = FastAPI(title="MLOps Pipeline API")
 
 # Prometheus metrics
 REQUESTS = Counter('http_requests_total', 'Total HTTP requests', ['method', 'endpoint'])
@@ -34,14 +35,30 @@ async def metrics_middleware(request: Request, call_next):
 clf, reg, le_user, le_cat = None, None, None, None
 model_ready = False
 
-def train_models_sync():
-    """Synchronous training using clickhouse_driver (reliable)."""
+# Simple cache in memory: {key: (value, expiry_timestamp)}
+_cache = {}
+CACHE_TTL = 60  # seconds
+
+def get_from_cache(key):
+    if key in _cache:
+        value, expiry = _cache[key]
+        if time.time() < expiry:
+            return value
+        else:
+            del _cache[key]
+    return None
+
+def set_to_cache(key, value, ttl=CACHE_TTL):
+    _cache[key] = (value, time.time() + ttl)
+
+# ==================== MODEL TRAINING ====================
+async def train_models_async():
     global clf, reg, le_user, le_cat, model_ready
     try:
         client = SyncClient(host='clickhouse', user='default', password='')
         data = client.execute('SELECT user_id, amount, product_category FROM orders')
         if not data:
-            model_ready = False
+            logger.info("No data in ClickHouse, waiting for next cycle")
             return
         df = pd.DataFrame(data, columns=['user_id', 'amount', 'product_category'])
         le_user = LabelEncoder()
@@ -56,25 +73,44 @@ def train_models_sync():
         clf.fit(X, y_cat)
         reg.fit(X, y_reg)
         model_ready = True
-        print(f"Models trained on {len(df)} samples")
+        logger.info(f"Models trained successfully on {len(data)} samples")
     except Exception as e:
-        print(f"Training error: {e}")
-        model_ready = False
+        logger.error(f"Training error: {e}")
 
-# Train on startup
-train_models_sync()
+async def periodic_training(interval=20):
+    while True:
+        try:
+            await train_models_async()
+        except Exception as e:
+            logger.error(f"Periodic training error: {e}")
+        await asyncio.sleep(interval)
 
-class PredictionResponse(BaseModel):
-    user_id: int
-    predicted_category: str
-    predicted_amount: float
-    from_cache: bool = False
+@app.on_event("startup")
+async def startup():
+    logger.info("Starting API... Waiting 30 seconds for data to accumulate...")
+    await asyncio.sleep(30)
+    asyncio.create_task(periodic_training(interval=20))
+    logger.info("Periodic training started (every 20 seconds)")
 
-@cached(ttl=60, cache=Cache.MEMORY, serializer=JsonSerializer())
+@app.on_event("shutdown")
+async def shutdown():
+    _cache.clear()
+
+# ==================== PREDICTION ====================
 async def get_prediction(user_id: int, amount: float):
     global clf, reg, le_user, le_cat
     if not model_ready or clf is None:
-        return None
+        return None, False
+
+    cache_key = f"pred_{user_id}_{amount}"
+    cached = get_from_cache(cache_key)
+    if cached is not None:
+        logger.debug(f"Cache hit for {cache_key}")
+        category = cached["category"]
+        amount_pred = cached["amount"]
+        return (category, amount_pred), True
+
+    # Cache miss
     try:
         try:
             user_enc = le_user.transform([user_id])[0]
@@ -84,29 +120,31 @@ async def get_prediction(user_id: int, amount: float):
         cat_enc = clf.predict(X_pred)[0]
         category = le_cat.inverse_transform([cat_enc])[0]
         amount_pred = reg.predict(X_pred)[0]
-        return category, float(amount_pred)
-    except Exception:
-        return None
+        result = (category, float(amount_pred))
+        set_to_cache(cache_key, {"category": category, "amount": float(amount_pred)})
+        logger.debug(f"Cache miss for {cache_key}, stored")
+        return result, False
+    except Exception as e:
+        logger.error(f"Prediction error: {e}")
+        return None, False
+
+class PredictionResponse(BaseModel):
+    user_id: int
+    predicted_category: str
+    predicted_amount: float
+    from_cache: bool = False
 
 @app.get("/predict/{user_id}", response_model=PredictionResponse)
 async def predict(user_id: int, amount: float = 0.0):
-    from_cache = False
-    cached_result = await get_prediction(user_id, amount)
-    if cached_result is not None:
-        CACHE_HITS.labels(endpoint="/predict").inc()
-        from_cache = True
-        category, amount_pred = cached_result
-    else:
+    result, from_cache = await get_prediction(user_id, amount)
+    if result is None:
         if not model_ready:
             return PredictionResponse(user_id=user_id, predicted_category="no_data", predicted_amount=0.0, from_cache=False)
-        try:
-            user_enc = le_user.transform([user_id])[0]
-        except ValueError:
-            user_enc = le_user.transform([le_user.classes_[0]])[0]
-        X_pred = [[amount, user_enc]]
-        cat_enc = clf.predict(X_pred)[0]
-        category = le_cat.inverse_transform([cat_enc])[0]
-        amount_pred = reg.predict(X_pred)[0]
+        else:
+            return PredictionResponse(user_id=user_id, predicted_category="error", predicted_amount=0.0, from_cache=False)
+    category, amount_pred = result
+    if from_cache:
+        CACHE_HITS.labels(endpoint="/predict").inc()
     PREDICTION_COUNTER.labels(category=category).inc()
     return PredictionResponse(
         user_id=user_id,
@@ -121,12 +159,12 @@ async def metrics():
 
 @app.get("/health")
 async def health():
-    """Health check using sync client."""
     try:
         client = SyncClient(host='clickhouse', user='default', password='')
         client.execute('SELECT 1')
         db_ok = True
-    except:
+    except Exception as e:
+        logger.error(f"Health check DB error: {e}")
         db_ok = False
     return {
         "status": "ok" if db_ok and model_ready else "degraded",
@@ -137,6 +175,5 @@ async def health():
 
 @app.post("/retrain")
 async def retrain(background_tasks: BackgroundTasks):
-    """Manually trigger model retraining."""
-    background_tasks.add_task(train_models_sync)
+    background_tasks.add_task(train_models_async)
     return {"status": "training_started"}

@@ -1,0 +1,13 @@
+#!/bin/bash
+echo "=== Pipeline-Prod-AIOps Health Check ==="
+echo ""
+echo -n "API Health: "
+curl -s http://localhost:8000/health | jq -r '.status' || echo "FAILED"
+echo -n "Prediction: "
+curl -s "http://localhost:8000/predict/13?amount=200" | jq -r '.predicted_category' || echo "FAILED"
+echo ""
+echo "=== Dashboard URLs ==="
+echo "API:      http://localhost:8000/docs"
+echo "Streamlit: http://localhost:8501"
+echo "Prometheus: http://localhost:9090"
+echo "Grafana:   http://localhost:3001 (admin/admin)"
