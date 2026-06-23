@@ -6,8 +6,10 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from clickhouse_driver import Client
+from kafka import KafkaConsumer, KafkaAdminClient
+from kafka.errors import NoBrokersAvailable
 
-# Настройка логирования
+# Logging setup
 def setup_logger(name, log_file=None):
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
@@ -21,7 +23,7 @@ def setup_logger(name, log_file=None):
         logger.addHandler(fh)
     return logger
 
-# Работа с Docker
+# Docker helpers
 def get_docker_client():
     return docker.from_env()
 
@@ -55,7 +57,7 @@ def get_clickhouse_disk_usage():
     client = get_clickhouse_client()
     result = client.execute("SELECT sum(bytes) FROM system.parts WHERE active")
     if result and result[0][0]:
-        return result[0][0] / (1024**3)  # в GB
+        return result[0][0] / (1024**3)
     return 0
 
 def get_clickhouse_row_count():
@@ -63,38 +65,33 @@ def get_clickhouse_row_count():
     result = client.execute("SELECT count(*) FROM orders")
     return result[0][0] if result else 0
 
-# Kafka lag (требуется kafka-python)
-from kafka import KafkaAdminClient, KafkaConsumer
-from kafka.admin import ConsumerGroupDescription
-
+# Kafka lag
 def get_consumer_lag(consumer_group='my-consumer-group', bootstrap_servers='localhost:9092'):
-    admin = KafkaAdminClient(bootstrap_servers=bootstrap_servers)
     try:
-        group_description = admin.describe_consumer_groups([consumer_group])
-        # Для простоты используем consumer для получения offset
         consumer = KafkaConsumer(
+            'orders_topic',
             bootstrap_servers=bootstrap_servers,
             group_id=consumer_group,
-            auto_offset_reset='earliest'
+            auto_offset_reset='earliest',
+            enable_auto_commit=False
         )
-        # Получаем партиции и оффсеты
+        consumer.subscribe(['orders_topic'])
+        consumer.poll(timeout_ms=1000)
         partitions = consumer.assignment()
         if not partitions:
             return 0
+        positions = {tp: consumer.position(tp) for tp in partitions}
         end_offsets = consumer.end_offsets(partitions)
-        # Получаем текущую позицию (lag)
         lag = 0
         for tp in partitions:
-            pos = consumer.position(tp)
-            end = end_offsets[tp]
-            lag += end - pos
+            lag += end_offsets[tp] - positions[tp]
         consumer.close()
         return lag
     except Exception as e:
         logging.error(f"Error getting lag: {e}")
         return -1
 
-# Построение графика
+# Plotting
 def plot_latency_rps(results, output_file='latency_rps.html'):
     df = pd.DataFrame(results)
     fig = make_subplots(specs=[[{"secondary_y": True}]])

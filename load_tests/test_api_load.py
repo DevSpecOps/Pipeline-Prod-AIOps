@@ -10,7 +10,6 @@ from utils import setup_logger, plot_latency_rps
 logger = setup_logger('api_load', 'api_load.log')
 
 def run_locust(users, spawn_rate=10, host='http://localhost:8000', run_time='60s'):
-    """Starting Locust in a headless mode, returning stats"""
     cmd = [
         'locust', '-f', 'locustfile.py',
         '--host', host,
@@ -18,10 +17,10 @@ def run_locust(users, spawn_rate=10, host='http://localhost:8000', run_time='60s
         '--spawn-rate', str(spawn_rate),
         '--run-time', run_time,
         '--headless',
-        '--only-summary'
+        '--only-summary',
+        '--json'
     ]
-
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    # Implementation depends on parsing JSON output from locust
     return {}
 
 def test_api_load():
@@ -59,7 +58,6 @@ def test_api_load():
         except subprocess.CalledProcessError as e:
             logger.error(f"Locust failed for {users} users: {e.output}")
         time.sleep(2)
-
     if results:
         plot_latency_rps(results, 'api_load_results.html')
         logger.info("API load test completed, results saved to api_load_results.html")

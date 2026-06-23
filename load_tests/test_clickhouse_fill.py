@@ -22,12 +22,9 @@ signal.signal(signal.SIGINT, signal_handler)
 def test_disk_fill(target_gb=5, max_seconds=3600):
     logger.info(f"Starting ClickHouse disk fill test, target {target_gb} GB or max {max_seconds}s")
     start_time = time.time()
-
     client = get_docker_client()
     container = client.containers.get('pipeline-prod-aiops-producer-1')
-
     logger.info("Starting producer in fast mode (sleep 0.01s)")
-
     cmd = [
         'docker-compose', 'run', '-d',
         '-e', 'PRODUCER_SLEEP=0.01',
@@ -53,7 +50,6 @@ def test_disk_fill(target_gb=5, max_seconds=3600):
                 break
             time.sleep(10)
     finally:
-
         subprocess.call(['docker-compose', 'stop', 'producer_fast'])
         subprocess.call(['docker-compose', 'rm', '-f', 'producer_fast'])
         logger.info("Producer stopped")
