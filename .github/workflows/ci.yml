@@ -21,18 +21,28 @@ jobs:
           pip install -r requirements-dev.txt
       - name: Start all services
         run: |
-          docker-compose up -d
-          sleep 45  # wait for services to initialize
-      - name: Check if ClickHouse is ready
-        run: |
-          docker-compose exec clickhouse clickhouse-client --query "SELECT 1" || exit 1
-      - name: Check if Kafka is ready
-        run: |
-          docker-compose exec kafka kafka-topics --bootstrap-server localhost:9092 --list || exit 1
+          docker compose up -d
+          # Wait for ClickHouse and Kafka to be healthy
+          for i in $(seq 1 30); do
+            if docker compose exec clickhouse clickhouse-client --query "SELECT 1" 2>/dev/null; then
+              echo "ClickHouse is ready"
+              break
+            fi
+            echo "Waiting for ClickHouse..."
+            sleep 3
+          done
+          for i in $(seq 1 30); do
+            if docker compose exec kafka kafka-topics --bootstrap-server localhost:9092 --list 2>/dev/null; then
+              echo "Kafka is ready"
+              break
+            fi
+            echo "Waiting for Kafka..."
+            sleep 3
+          done
       - name: Run tests
         run: |
           pytest tests/ -v
       - name: Stop services
         if: always()
         run: |
-          docker-compose down -v
+          docker compose down -v
