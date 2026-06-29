@@ -2,15 +2,15 @@
   "title": "Sports Retail MLOps Dashboard",
   "panels": [
     {
-      "title": "Total Revenue (last 24h)",
+      "title": "Total Revenue",
       "type": "stat",
       "targets": [
         {
           "datasource": {
             "type": "grafana-clickhouse-datasource",
-            "uid": "bfq1j1d5i37r4a"
+            "uid": "clickhouse"
           },
-          "rawSql": "SELECT SUM(total_amount) AS revenue FROM orders WHERE timestamp > (now() - INTERVAL 1 DAY)",
+          "rawSql": "SELECT SUM(amount) AS revenue FROM orders",
           "format": "table",
           "refId": "A"
         }
@@ -24,9 +24,9 @@
         {
           "datasource": {
             "type": "grafana-clickhouse-datasource",
-            "uid": "bfq1j1d5i37r4a"
+            "uid": "clickhouse"
           },
-          "rawSql": "SELECT experiment_group, AVG(total_amount) AS avg_check FROM orders GROUP BY experiment_group ORDER BY avg_check DESC",
+          "rawSql": "SELECT experiment_group, AVG(amount) AS avg_check FROM orders GROUP BY experiment_group ORDER BY avg_check DESC",
           "format": "table",
           "refId": "A"
         }
@@ -40,9 +40,9 @@
         {
           "datasource": {
             "type": "grafana-clickhouse-datasource",
-            "uid": "bfq1j1d5i37r4a"
+            "uid": "clickhouse"
           },
-          "rawSql": "SELECT channel, SUM(total_amount) AS revenue FROM orders GROUP BY channel ORDER BY revenue DESC",
+          "rawSql": "SELECT channel, SUM(amount) AS revenue FROM orders GROUP BY channel ORDER BY revenue DESC",
           "format": "table",
           "refId": "A"
         }
@@ -56,7 +56,7 @@
         {
           "datasource": {
             "type": "grafana-clickhouse-datasource",
-            "uid": "bfq1j1d5i37r4a"
+            "uid": "clickhouse"
           },
           "rawSql": "SELECT product_category, COUNT(*) AS orders_count FROM orders GROUP BY product_category ORDER BY orders_count DESC LIMIT 10",
           "format": "table",
@@ -72,7 +72,7 @@
         {
           "datasource": {
             "type": "grafana-clickhouse-datasource",
-            "uid": "bfq1j1d5i37r4a"
+            "uid": "clickhouse"
           },
           "rawSql": "SELECT promo, COUNT(*) AS count FROM orders GROUP BY promo ORDER BY count DESC",
           "format": "table",
@@ -88,9 +88,9 @@
         {
           "datasource": {
             "type": "grafana-clickhouse-datasource",
-            "uid": "bfq1j1d5i37r4a"
+            "uid": "clickhouse"
           },
-          "rawSql": "SELECT is_weekend, SUM(total_amount) AS revenue FROM orders GROUP BY is_weekend",
+          "rawSql": "SELECT is_weekend, SUM(amount) AS revenue FROM orders GROUP BY is_weekend",
           "format": "table",
           "refId": "A"
         }

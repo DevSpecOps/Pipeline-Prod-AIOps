@@ -18,8 +18,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-      - name: Run basic tests
+          pip install -r requirements-dev.txt
+      - name: Run tests
         run: |
-          python -c "import pytest; print('OK')"
-
-
+          pytest tests/ -v

@@ -87,9 +87,8 @@ def generate_timestamp():
     return int(dt.timestamp())
 
 def is_weekend(timestamp):
-    """Return True if timestamp falls on Saturday or Sunday."""
     dt = datetime.fromtimestamp(timestamp)
-    return dt.weekday() >= 5  # 5=Saturday, 6=Sunday
+    return dt.weekday() >= 5
 
 def generate_experiment_group():
     return 'A' if random.random() < 0.5 else 'B'
@@ -148,7 +147,7 @@ def generate_order():
         'brand': brand,
         'price': price,
         'quantity': quantity,
-        'total_amount': total,
+        'amount': total,
         'total_with_discount': total_with_discount,
         'discount': discount,
         'channel': weighted_choice(CHANNELS, CHANNEL_WEIGHTS),
@@ -157,7 +156,7 @@ def generate_order():
         'promo': weighted_choice(PROMO_TYPES, PROMO_WEIGHTS),
         'experiment_group': generate_experiment_group(),
         'is_returned': generate_returned(),
-        'is_weekend': is_weekend(timestamp),       # <- добавляем
+        'is_weekend': is_weekend(timestamp),
         'has_card': loyalty['has_card'],
         'card_discount': loyalty['card_discount'],
         'bonus_earned': loyalty['bonus_earned']
@@ -207,6 +206,7 @@ def main():
         order = generate_order()
         try:
             producer.send(TOPIC, value=order)
+            producer.flush()
             print(f"Sent: {order}")
             count += 1
             if MAX_MESSAGES > 0 and count >= MAX_MESSAGES:

@@ -8,10 +8,15 @@ st.title("📊 Real‑time Order Monitoring & ML Predictions")
 
 try:
     client = Client(host='clickhouse', user='default', password='')
-    df = pd.DataFrame(client.execute('SELECT * FROM orders'),
-                      columns=['order_id','user_id','amount','product_category','timestamp'])
-except Exception:
-    st.error("Cannot connect to ClickHouse. Make sure services are running.")
+    # Explicit column selection instead of SELECT * to avoid ordering issues
+    df = pd.DataFrame(
+        client.execute(
+            'SELECT order_id, user_id, amount, product_category, timestamp FROM orders'
+        ),
+        columns=['order_id', 'user_id', 'amount', 'product_category', 'timestamp']
+    )
+except Exception as e:
+    st.error(f"Cannot connect to ClickHouse: {e}")
     st.stop()
 
 if df.empty:

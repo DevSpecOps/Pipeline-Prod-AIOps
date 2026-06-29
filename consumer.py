@@ -63,7 +63,7 @@ def create_table(client):
             brand String,
             price Float32,
             quantity Int32,
-            total_amount Float32,
+            amount Float32,                     -- renamed from total_amount
             total_with_discount Float32,
             discount Float32,
             channel String,
@@ -94,17 +94,45 @@ def main():
         enable_auto_commit=True
     )
     print(f"Consumer started, listening to '{TOPIC}'")
-
     for message in consumer:
         if not running:
             break
         order = message.value
         try:
-            client.execute('INSERT INTO orders FORMAT JSONEachRow', [order])
+            client.execute('''
+                INSERT INTO orders (
+                    order_id, user_id, timestamp, product_category, product_name,
+                    brand, price, quantity, amount, total_with_discount,
+                    discount, channel, city, user_type, promo,
+                    experiment_group, is_returned, is_weekend,
+                    has_card, card_discount, bonus_earned
+                ) VALUES
+            ''', [(
+                order['order_id'],
+                order['user_id'],
+                order['timestamp'],
+                order['product_category'],
+                order['product_name'],
+                order['brand'],
+                order['price'],
+                order['quantity'],
+                order['amount'],                # was 'total_amount'
+                order['total_with_discount'],
+                order['discount'],
+                order['channel'],
+                order['city'],
+                order['user_type'],
+                order['promo'],
+                order['experiment_group'],
+                order['is_returned'],
+                order['is_weekend'],
+                order['has_card'],
+                order['card_discount'],
+                order['bonus_earned']
+            )])
             print(f"Inserted: {order}")
         except Exception as e:
             print(f"Insert error: {e}")
-
     consumer.close()
     print("Consumer stopped.")
 
