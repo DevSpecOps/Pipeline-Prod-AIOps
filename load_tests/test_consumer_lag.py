@@ -36,7 +36,7 @@ def test_consumer_lag(stop_time=60, recovery_time=120, bootstrap_servers='localh
     start_recovery = time.time()
     lag_history = []
     while running and (time.time() - start_recovery) < recovery_time:
-        lag = get_consumer_lag(bootstrap_servers=bootstrap_servers)
+        lag = get_consumer_lag(bootstrap_servers='localhost:29092')
         lag_history.append((time.time() - start_recovery, lag))
         logger.info(f"Recovery time: {time.time() - start_recovery:.0f}s, Lag: {lag}")
         if lag == 0:

@@ -1,9 +1,12 @@
+import os
 from clickhouse_driver import Client
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import LabelEncoder
 import pandas as pd
 
-client = Client(host='clickhouse', user='default', password='')
+CLICKHOUSE_HOST = os.getenv('CLICKHOUSE_HOST', 'clickhouse')
+client = Client(host=CLICKHOUSE_HOST, user='default', password='')
+
 data = client.execute('SELECT user_id, amount FROM orders')
 df = pd.DataFrame(data, columns=['user_id', 'amount'])
 if df.empty:

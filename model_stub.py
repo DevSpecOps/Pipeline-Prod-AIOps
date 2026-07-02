@@ -1,9 +1,11 @@
+import os
 from clickhouse_driver import Client
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import LabelEncoder
 import pandas as pd
 
-client = Client(host='clickhouse', user='default', password='')
+CLICKHOUSE_HOST = os.getenv('CLICKHOUSE_HOST', 'clickhouse')
+client = Client(host=CLICKHOUSE_HOST, user='default', password='')
 
 data = client.execute('SELECT user_id, amount, product_category FROM orders')
 if not data:

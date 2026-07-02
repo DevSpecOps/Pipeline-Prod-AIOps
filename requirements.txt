@@ -1,12 +1,10 @@
-﻿kafka-python==2.0.2
+﻿kafka-python==2.2.20
 clickhouse-driver==0.2.6
-numpy==1.23.5
-scikit-learn==1.2.2
-pandas
+numpy==1.26.4
+scikit-learn==1.4.2
+pandas==2.2.0
 fastapi==0.115.0
 uvicorn==0.30.0
 streamlit==1.33.0
 prometheus-client==0.19.0
 requests==2.31.0
-pytest==7.4.0
-testcontainers[kafka,clickhouse]==3.7.1

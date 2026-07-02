@@ -47,6 +47,19 @@
           "refId": "A"
         }
       ],
+      "options": {
+        "displayLabels": ["name", "percent"],
+        "legend": {
+          "displayMode": "list",
+          "placement": "right"
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": ["sum"],
+          "fields": "",
+          "values": true
+        }
+      },
       "gridPos": { "x": 0, "y": 8, "w": 8, "h": 8 }
     },
     {

@@ -1,14 +1,17 @@
+import os
 import streamlit as st
 import pandas as pd
 import requests
 from clickhouse_driver import Client
 
+CLICKHOUSE_HOST = os.getenv('CLICKHOUSE_HOST', 'clickhouse')
+API_URL = os.getenv('API_URL', 'http://api:8000')
+
 st.set_page_config(page_title="MLOps Dashboard", layout="wide")
 st.title("📊 Real‑time Order Monitoring & ML Predictions")
 
 try:
-    client = Client(host='clickhouse', user='default', password='')
-    # Explicit column selection instead of SELECT * to avoid ordering issues
+    client = Client(host=CLICKHOUSE_HOST, user='default', password='')
     df = pd.DataFrame(
         client.execute(
             'SELECT order_id, user_id, amount, product_category, timestamp FROM orders'
@@ -38,7 +41,7 @@ else:
     amount = st.number_input("Order amount (optional)", value=0.0, step=10.0)
     if st.button("Predict"):
         try:
-            resp = requests.get(f"http://api:8000/predict/{user_id}?amount={amount}")
+            resp = requests.get(f"{API_URL}/predict/{user_id}?amount={amount}")
             data = resp.json()
             st.success(f"Predicted category: **{data['predicted_category']}**")
             st.success(f"Predicted amount: **{data['predicted_amount']:.2f}**")
