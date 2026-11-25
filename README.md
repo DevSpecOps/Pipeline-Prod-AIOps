@@ -175,7 +175,7 @@ GitHub Actions is configured to:
 
 Check the [Releases](https://github.com/DevSpecOps/Pipeline-Prod-AIOps/releases) page for versioned artifacts, changelogs, and stable builds.
 
-- **Latest stable version**: [v3.0.1](https://github.com/DevSpecOps/Pipeline-Prod-AIOps/releases/tag/v3.0.1)
+- **Latest stable version**: [v3.1.0](https://github.com/DevSpecOps/Pipeline-Prod-AIOps/releases/tag/v3.1.0)
 
 ---
 

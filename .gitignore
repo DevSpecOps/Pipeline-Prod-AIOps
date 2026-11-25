@@ -36,3 +36,5 @@ consumer_lag_results.html
 # Streamlit / ClickHouse local data
 clickhouse_data/
 clickhouse_fill_results.html
+
+locust_*.csv
